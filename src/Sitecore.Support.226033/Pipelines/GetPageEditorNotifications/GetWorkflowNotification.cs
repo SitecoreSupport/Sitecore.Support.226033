@@ -35,10 +35,6 @@ namespace Sitecore.Support.Pipelines.GetPageEditorNotifications
                     {
                         return;
                     }
-                    if (!contextItem.Access.CanWrite())
-                    {
-                        return;
-                    }
                 }
                 using (new SecurityDisabler())
                 {
@@ -57,14 +53,16 @@ namespace Sitecore.Support.Pipelines.GetPageEditorNotifications
                                 Icon = icon
                             };
                             WorkflowCommand[] array = default(WorkflowCommand[]);
+                            bool canShowCommands = false;
                             using (new SecurityEnabler())
                             {
                                 using (new ClientDatabaseSwitcher(database))
                                 {
                                     array = WorkflowFilterer.FilterVisibleCommands(workflow.GetCommands(contextItem), contextItem);
+                                    canShowCommands = this.CanShowCommands(contextItem, array);
                                 }
                             }
-                            if (WorkflowPanel.CanShowCommands(contextItem, array))
+                            if (canShowCommands)
                             {
                                 WorkflowCommand[] array2 = array;
                                 foreach (WorkflowCommand workflowCommand in array2)
@@ -85,6 +83,25 @@ namespace Sitecore.Support.Pipelines.GetPageEditorNotifications
                 }
             }
         }
+
+
+      private bool CanShowCommands(Item item, WorkflowCommand[] commands)
+      {
+        Assert.ArgumentNotNull(item, "item");
+        if (item.Appearance.ReadOnly || commands == null || commands.Length == 0 || !item.Access.CanWrite())
+        {
+          return false;
+        }
+        if (Context.IsAdministrator)
+        {
+          return true;
+        }
+        if (item.Access.CanWriteLanguage() && (item.Locking.CanLock() || item.Locking.HasLock()))
+        {
+          return true;
+        }
+        return false;
+      }
 
         private static string GetDescription(IWorkflow workflow, WorkflowState state, Database database)
         {
